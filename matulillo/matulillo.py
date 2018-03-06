@@ -15,6 +15,13 @@ def filter_instances(project):
         instances = ec2.instances.all()
     return instances
 
+
+def has_pending_snapshot(volume):
+    snapshots = list(volume.snapshots.all())
+    return snapshots and snapshots[0].state == 'pending'
+
+
+
 @click.group()
 def cli():
     """matulillo.py manages snapshots"""
@@ -85,14 +92,18 @@ def instances():
 @click.option('--project',default=None,
     help="Only instances for project (tag Project:<name>)")
 def create_snapshots(project):
-    """Create sanpshot """
+    """Create snapshot """
 
     instances = filter_instances(project)
 
     for i in instances:
         i.stop()
         i.wait_until_stopped()
+
         for v in i.volumes.all():
+            if has_pending_snapshots(v):
+                print("Skipping {0}, snapshot already in progress".format(v.id))
+                continue
             print("Creating snapshot of {0}".format(v.id))
             v.create_snapshot(Description="Created by Matulillo")
 
